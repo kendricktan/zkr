@@ -1,0 +1,221 @@
+<html>
+  <head>
+    <title>Zero Knowledge Relayer Frontend</title>
+
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.rawgit.com/necolas/normalize.css/master/normalize.css"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.rawgit.com/milligram/milligram/master/dist/milligram.min.css"
+    />
+
+    <style>
+      /* :::::::::::::: Presentation css */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        --locked-color: #5fadbf;
+        --unlocked-color: #ff5153;
+      }
+      .container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 250px;
+      }
+      /* :::::::::::::: Required CSS */
+      /* Locked */
+      .lock {
+        width: 90px;
+        height: 70px;
+        border: 3px solid var(--locked-color);
+        border-radius: 5px;
+        position: relative;
+        cursor: pointer;
+        -webkit-transition: all 0.1s ease-in-out;
+        transition: all 0.1s ease-in-out;
+      }
+      .lock:after {
+        content: "";
+        display: block;
+        background: var(--locked-color);
+        width: 4px;
+        height: 10px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        margin: -3.5px 0 0 -2px;
+        -webkit-transition: all 0.1s ease-in-out;
+        transition: all 0.1s ease-in-out;
+      }
+      .lock:before {
+        content: "";
+        display: block;
+        width: 50px;
+        height: 50px;
+        bottom: 100%;
+        position: absolute;
+        left: 25%;
+        margin-left: -8px;
+        border: 3px solid var(--locked-color);
+        border-top-right-radius: 50%;
+        border-top-left-radius: 50%;
+        border-bottom: 0;
+        -webkit-transition: all 0.1s ease-in-out;
+        transition: all 0.1s ease-in-out;
+      }
+      /* Locked Hover */
+      .lock:hover:before {
+        height: 60px;
+      }
+      /* Unlocked */
+      .unlocked {
+        transform: rotate(10deg);
+      }
+      .unlocked:before {
+        bottom: 130%;
+        left: 31%;
+        margin-left: -11.5px;
+        transform: rotate(-45deg);
+      }
+      .unlocked,
+      .unlocked:before {
+        border-color: var(--unlocked-color);
+      }
+      .unlocked:after {
+        background: var(--unlocked-color);
+      }
+      /* Unlocked Hover */
+      .unlocked:hover {
+        transform: rotate(3deg);
+      }
+      .unlocked:hover:before {
+        height: 60px;
+        left: 40%;
+        bottom: 124%;
+        transform: rotate(-30deg);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div style="width: 100%; height: 50px"></div>
+    <div class="container">
+      <span onclick="toggleLock()" id="span-lock" class="lock"></span>
+    </div>
+
+    <div style="text-align: center">
+      <h2>Contract address</h2>
+      <h4 id="monitoring-h2">Currently Monitoring: None</h4>
+      <input
+        style="width: 50%"
+        type="text"
+        placeholder="0xa99396B2e8b009470EBA52b3c6F54BB877125Ac2"
+        id="contractAddressField"
+        value="0x0E3CCe300E52898e8C04682A0850dcF3a8fC0985"
+      />
+      <br />
+
+      <button
+        onclick="monitorAddress()"
+        style="width: 50%"
+        class="button button-outline"
+      >
+        Observe Zero Knowledge Contract
+      </button>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.36/dist/web3.min.js"
+      integrity="sha256-nWBTbvxhJgjslRyuAKJHK+XcZPlCnmIAAMixz6EefVk="
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      let monitoring = null;
+      let lastTxHash = null;
+      let firstFetch = true;
+
+      function toggleLock() {
+        document.getElementById("span-lock").classList.toggle("unlocked");
+      }
+
+      function unlock() {
+        document.getElementById("span-lock").className = "lock unlocked";
+      }
+
+      function lock() {
+        document.getElementById("span-lock").className = "lock locked";
+      }
+
+      function monitorAddress() {
+        if (monitoring !== null) {
+          clearInterval(monitoring);
+        }
+        firstFetch = true;
+
+        const verifierAbi = JSON.parse(
+          `[{"constant":false,"inputs":[{"name":"a","type":"uint256[2]"},{"name":"a_p","type":"uint256[2]"},{"name":"b","type":"uint256[2][2]"},{"name":"b_p","type":"uint256[2]"},{"name":"c","type":"uint256[2]"},{"name":"c_p","type":"uint256[2]"},{"name":"h","type":"uint256[2]"},{"name":"k","type":"uint256[2]"},{"name":"input","type":"uint256[1]"}],"name":"verifyTx","outputs":[{"name":"r","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"s","type":"string"}],"name":"Verified","type":"event"}]`
+        );
+        const address = document.getElementById("contractAddressField").value;
+
+        document.getElementById(
+          "monitoring-h2"
+        ).innerHTML = `Currently Monitoring: ${address}`;
+
+        monitoring = setInterval(function() {
+          fetch(
+            `https://api-ropsten.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc`
+          )
+            .then(function(x) {
+              return x.json();
+            })
+            .then(function(j) {
+              const curLastTx = j.result[0] || null;
+
+              if (curLastTx === null) {
+                return;
+              }
+
+              // If new hash
+              if (curLastTx.hash !== lastTxHash) {
+                lastTxHash = curLastTx.hash;
+
+                if (firstFetch) {
+                  firstFetch = false;
+                  return;
+                }
+
+                // Call ETH_CALL
+                fetch(
+                  `https://api-ropsten.etherscan.io/api?module=proxy&action=eth_call&to=${address}&data=${
+                    curLastTx.input
+                  }&tag=latest`
+                )
+                  .then(function(x2) {
+                    return x2.json();
+                  })
+                  .then(function(j2) {
+                    // Success
+                    if (
+                      j2.result ===
+                      "0x0000000000000000000000000000000000000000000000000000000000000001"
+                    ) {
+                      unlock();
+                    }
+                  });
+              }
+            });
+        }, 3000);
+      }
+    </script>
+  </body>
+</html>

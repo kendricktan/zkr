@@ -9,7 +9,7 @@ const { spawnSync, execFileSync } = require("child_process");
 
 // Default ABI
 const verifierAbi = JSON.parse(
-  `[{"constant":false,"inputs":[{"name":"a","type":"uint256[2]"},{"name":"a_p","type":"uint256[2]"},{"name":"b","type":"uint256[2][2]"},{"name":"b_p","type":"uint256[2]"},{"name":"c","type":"uint256[2]"},{"name":"c_p","type":"uint256[2]"},{"name":"h","type":"uint256[2]"},{"name":"k","type":"uint256[2]"},{"name":"input","type":"uint256[5]"}],"name":"verifyTx","outputs":[{"name":"r","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"s","type":"string"}],"name":"Verified","type":"event"}]`
+  `[{"constant":false,"inputs":[{"name":"a","type":"uint256[2]"},{"name":"a_p","type":"uint256[2]"},{"name":"b","type":"uint256[2][2]"},{"name":"b_p","type":"uint256[2]"},{"name":"c","type":"uint256[2]"},{"name":"c_p","type":"uint256[2]"},{"name":"h","type":"uint256[2]"},{"name":"k","type":"uint256[2]"},{"name":"input","type":"uint256[1]"}],"name":"verifyTx","outputs":[{"name":"r","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"s","type":"string"}],"name":"Verified","type":"event"}]`
 );
 
 const infuraRopsten =
@@ -39,7 +39,7 @@ const hashVerifierData = (out0, out1) => {
   return `
 import "LIBSNARK/sha256packed"
 
-def main(field a, field b, field c, field d) -> (field):
+def main(private field a, private field b, private field c, private field d) -> (field):
     h0, h1 = sha256packed(a, b, c, d)
     h0 == ${out1}
     h1 == ${out0}
@@ -208,22 +208,32 @@ app.post("/prover/:uuid", async (req, res) => {
 
   // Checkes
   if (!noNans || contractAddress === undefined) {
-    res
-      .status(400)
-      .send({
-        error:
-          "Need num1, num2, num3, num4 in numbers, and contractAddress (eth address)"
-      });
+    res.status(400).send({
+      error:
+        "Need num1, num2, num3, num4 in numbers, and contractAddress (eth address)"
+    });
     return;
   }
 
-  execFileSync("zokrates", ["compute-witness", "-a", num1, num2, num3, num4], {
-    cwd: path.resolve(__dirname, currentDir)
-  });
+  try {
+    execFileSync(
+      "zokrates",
+      ["compute-witness", "-a", num1, num2, num3, num4],
+      {
+        cwd: path.resolve(__dirname, currentDir)
+      }
+    );
 
-  execFileSync("zokrates", [`generate-proof`], {
-    cwd: path.resolve(__dirname, currentDir)
-  });
+    execFileSync("zokrates", [`generate-proof`], {
+      cwd: path.resolve(__dirname, currentDir)
+    });
+  } catch (e) {
+    res.send({
+      result: false,
+      error: 'invalid number combination'
+    })
+    return
+  }
 
   // Read proving.json
   const provingRaw = fs.readFileSync(`${currentDir}/proof.json`, "utf8");
@@ -242,12 +252,19 @@ app.post("/prover/:uuid", async (req, res) => {
   contract.setProvider(web3.currentProvider);
 
   const contractRes = await contract.methods
-    .verifyTx(A, A_p, B, B_p, C, C_p, H, K, [0, 0, 0, 0, 1])
-    .send({ gas: "4712388", from: ethereumAddress });
+    .verifyTx(A, A_p, B, B_p, C, C_p, H, K, [1])
+    .send({ gas: "4712388", from: ethereumAddress })
+    .catch(x => {
+      res.send({
+        contractDeployed: false,
+        error: JSON.stringify(x)
+      });
+      return;
+    });
 
   res.send({
+    contractDeployed: true,
     txHash: contractRes.transactionHash,
-    result: contractRes.status
   });
 });
 
