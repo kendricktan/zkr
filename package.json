@@ -1,0 +1,32 @@
+{
+  "name": "zkr",
+  "version": "0.0.1",
+  "description": "Zero Knowledge Proof Relayer",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kendricktan/zkr.git"
+  },
+  "author": "Kendrick Tan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kendricktan/zkr/issues"
+  },
+  "homepage": "https://github.com/kendricktan/zkr#readme",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "ethereumjs-tx": "^1.3.7",
+    "express": "^4.16.4",
+    "solc": "^0.4.21",
+    "uuid": "^3.3.2",
+    "web3": "^1.0.0-beta.36"
+  },
+  "devDependencies": {
+    "nodemon": "^1.18.6"
+  }
+}
