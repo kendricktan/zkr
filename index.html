@@ -121,7 +121,6 @@
         type="text"
         placeholder="0xa99396B2e8b009470EBA52b3c6F54BB877125Ac2"
         id="contractAddressField"
-        value="0x0E3CCe300E52898e8C04682A0850dcF3a8fC0985"
       />
       <br />
 
@@ -161,6 +160,7 @@
           clearInterval(monitoring);
         }
         firstFetch = true;
+        lastTxHash = null;
         lock();
 
         const verifierAbi = JSON.parse(
